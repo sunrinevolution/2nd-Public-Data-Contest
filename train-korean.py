@@ -5,6 +5,7 @@ from tqdm import tqdm
 from multiprocessing import Pool, cpu_count
 from fbprophet import Prophet
 from pandas.core.frame import DataFrame
+import numpy as np
 
 plt.rcParams['figure.figsize']=(20,10)
 plt.style.use('ggplot')
@@ -61,23 +62,23 @@ def build_model(timeserie: DataFrame) -> Prophet:
   global diseases
   model = Prophet(holidays=diseases, weekly_seasonality=False, daily_seasonality=False, )
   model.fit(timeserie)
-  return model
-
-# start_time = time()
-# p = Pool(cpu_count() - 1)
-# predictions = list(tqdm(p.imap(build_model, series), total=len(series)))
-# p.close()
-# p.join()
-# print("--- %s seconds ---" % (time() - start_time))
-
-for i in series:
-  model = build_model(i)
-
-  forecast = model.make_future_dataframe(periods=90, include_history=False)
+  forecast = model.make_future_dataframe(periods=365, include_history=False)
   forecast = model.predict(forecast)
-  model.plot(forecast)
+  return forecast
 
+start_time = time()
+p = Pool(cpu_count())
+predictions = list(tqdm(p.imap(build_model, series), total=len(series)))
+p.close()
+p.join()
+print("--- %s seconds ---" % (time() - start_time))
+predictions[0]["y"] = np.where(predictions[0]["yhat"]<0,0,predictions[0]["yhat"])
+predictions[0]["y"] = predictions[0]["y"]/5
 
+fig = plt.figure(facecolor='w', figsize=(10, 6))
+plt.plot(predictions[0].ds, predictions[0].y)
+
+plt.show()
 # COVID-19 - https://www.kaggle.com/imdevskp/corona-virus-report
 # MERS - https://www.kaggle.com/imdevskp/mers-outbreak-dataset-20122019
 # Ebola Western Africa 2014 Outbreak - https://www.kaggle.com/imdevskp/ebola-outbreak-20142016-complete-dataset
